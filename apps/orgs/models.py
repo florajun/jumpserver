@@ -13,7 +13,7 @@ class Organization(models.Model):
     created_by = models.CharField(max_length=32, null=True, blank=True, verbose_name=_('Created by'))
     date_created = models.DateTimeField(auto_now_add=True, null=True, blank=True, verbose_name=_('Date created'))
     comment = models.TextField(max_length=128, default='', blank=True, verbose_name=_('Comment'))
-    members = models.ManyToManyField('users.User', related_name='orgs', through='orgs.OrganizationMembers',
+    members = models.ManyToManyField('users.User', related_name='orgs', through='orgs.OrganizationMember',
                                      through_fields=('org', 'user'))
 
     orgs = None
@@ -71,32 +71,32 @@ class Organization(models.Model):
             org = cls.default() if default else None
         return org
 
-    @lazyproperty
-    def members_with_role(self):
-        from users.models import User
-        return list(self.members.annotate(org_role=F('orgs_through__role')))
-
-    @property
-    def admins(self):
-        return [member for member in self.members_with_role
-                if member.org_role == OrganizationMembers.ROLE_ADMIN]
-
-    @property
-    def auditors(self):
-        return [member for member in self.members_with_role
-                if member.org_role == OrganizationMembers.ROLE_AUDITOR]
-
-    @property
-    def users(self):
-        return [member for member in self.members_with_role
-                if member.org_role == OrganizationMembers.ROLE_USER]
+    # @lazyproperty
+    # def members_with_role(self):
+    #     from users.models import User
+    #     return list(self.members.annotate(org_role=F('orgs_through__role')))
+    #
+    # @property
+    # def admins(self):
+    #     return [member for member in self.members_with_role
+    #             if member.org_role == OrganizationMember.ROLE_ADMIN]
+    #
+    # @property
+    # def auditors(self):
+    #     return [member for member in self.members_with_role
+    #             if member.org_role == OrganizationMember.ROLE_AUDITOR]
+    #
+    # @property
+    # def users(self):
+    #     return [member for member in self.members_with_role
+    #             if member.org_role == OrganizationMember.ROLE_USER]
 
     # @lazyproperty
     # lazyproperty 导致用户列表中角色显示出现不稳定的情况, 如果不加会导致数据库操作次数太多
     def org_users(self):
         from users.models import User
         if self.is_real():
-            return self.members.filter(orgs_through__role=OrganizationMembers.ROLE_USER)
+            return self.members.filter(orgs_through__role=OrganizationMember.ROLE_USER)
         users = User.objects.filter(role=User.ROLE_USER)
         return users
 
@@ -107,7 +107,7 @@ class Organization(models.Model):
     def org_admins(self):
         from users.models import User
         if self.is_real():
-            return self.members.filter(orgs_through__role=OrganizationMembers.ROLE_ADMIN)
+            return self.members.filter(orgs_through__role=OrganizationMember.ROLE_ADMIN)
         return User.objects.filter(role=User.ROLE_ADMIN)
 
     def get_org_admins(self):
@@ -125,7 +125,7 @@ class Organization(models.Model):
     def org_auditors(self):
         from users.models import User
         if self.is_real():
-            return self.members.filter(orgs_through__role=OrganizationMembers.ROLE_AUDITOR)
+            return self.members.filter(orgs_through__role=OrganizationMember.ROLE_AUDITOR)
         return User.objects.filter(role=User.ROLE_AUDITOR)
 
     def get_org_auditors(self):
@@ -171,7 +171,7 @@ class Organization(models.Model):
             admin_orgs.extend(cls.objects.all())
         else:
             admin_orgs.extend(cls.objects.filter(
-                members_through__role=OrganizationMembers.ROLE_ADMIN,
+                members_through__role=OrganizationMember.ROLE_ADMIN,
                 members_through__user_id=user.id
             ).distinct())
         admin_orgs.append(cls.default())
@@ -184,7 +184,7 @@ class Organization(models.Model):
             return user_orgs
 
         user_orgs.extend(cls.objects.filter(
-            members_through__role=OrganizationMembers.ROLE_USER,
+            members_through__role=OrganizationMember.ROLE_USER,
             members_through__user_id=user.id
         ).distinct())
 
@@ -200,7 +200,7 @@ class Organization(models.Model):
             audit_orgs.append(cls.default())
         else:
             audit_orgs.extend(cls.objects.filter(
-                members_through__role=OrganizationMembers.ROLE_AUDITOR,
+                members_through__role=OrganizationMember.ROLE_AUDITOR,
                 members_through__user_id=user.id
             ).distinct())
         return audit_orgs
@@ -215,7 +215,7 @@ class Organization(models.Model):
         else:
             orgs.extend(cls.objects.filter(
                 members_through__role__id=(
-                    OrganizationMembers.ROLE_AUDITOR, OrganizationMembers.ROLE_ADMIN
+                    OrganizationMember.ROLE_AUDITOR, OrganizationMember.ROLE_ADMIN
                 ),
                 members_through__user_id=user.id
             ).distinct())
@@ -254,7 +254,7 @@ class Organization(models.Model):
         return orgs
 
 
-class OrganizationMembers(models.Model):
+class OrganizationMember(models.Model):
     ROLE_ADMIN = 'Admin'
     ROLE_USER = 'User'
     ROLE_AUDITOR = 'Auditor'

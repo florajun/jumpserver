@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from users.models.user import User
 from common.serializers import AdaptedBulkListSerializer
-from .models import Organization, OrganizationMembers
+from .models import Organization, OrganizationMember
 from .mixins.serializers import OrgMembershipSerializerMixin
 
 
@@ -25,17 +25,17 @@ class OrgSerializer(ModelSerializer):
         read_only_fields = ['created_by', 'date_created']
 
     def _new_relations_by_role(self, instance, users, role):
-        return (OrganizationMembers(org=instance, user=user, role=role) for user in users)
+        return (OrganizationMember(org=instance, user=user, role=role) for user in users)
 
     def _create_relations(self, instance, users, admins, auditors):
         relations = []
-        relations.extend(self._new_relations_by_role(instance, users, OrganizationMembers.ROLE_USER))
-        relations.extend(self._new_relations_by_role(instance, admins, OrganizationMembers.ROLE_ADMIN))
-        relations.extend(self._new_relations_by_role(instance, auditors, OrganizationMembers.ROLE_AUDITOR))
-        OrganizationMembers.objects.bulk_create(relations)
+        relations.extend(self._new_relations_by_role(instance, users, OrganizationMember.ROLE_USER))
+        relations.extend(self._new_relations_by_role(instance, admins, OrganizationMember.ROLE_ADMIN))
+        relations.extend(self._new_relations_by_role(instance, auditors, OrganizationMember.ROLE_AUDITOR))
+        OrganizationMember.objects.bulk_create(relations)
 
     def _clear_relations(self, org, role):
-        OrganizationMembers.objects.filter(org=org, role=role).delete()
+        OrganizationMember.objects.filter(org=org, role=role).delete()
 
     def create(self, validated_data):
         users = validated_data.pop('users', [])
@@ -53,7 +53,7 @@ class OrgSerializer(ModelSerializer):
             if users is not None:
                 self._clear_relations(instance, role)
                 relations.extend(self._new_relations_by_role(instance, users, role))
-        OrganizationMembers.objects.bulk_create(relations)
+        OrganizationMember.objects.bulk_create(relations)
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', None)
@@ -65,9 +65,9 @@ class OrgSerializer(ModelSerializer):
         instance.save()
 
         users_with_role = (
-            (users, OrganizationMembers.ROLE_USER),
-            (admins, OrganizationMembers.ROLE_ADMIN),
-            (auditors, OrganizationMembers.ROLE_AUDITOR)
+            (users, OrganizationMember.ROLE_USER),
+            (admins, OrganizationMember.ROLE_ADMIN),
+            (auditors, OrganizationMember.ROLE_AUDITOR)
         )
         self._update_relations(instance, users_with_role)
         return instance
