@@ -8,7 +8,7 @@ from rest_framework.views import Response
 from rest_framework_bulk import BulkModelViewSet
 
 from common.permissions import IsSuperUserOrAppUser
-from .models import Organization
+from .models import Organization, ROLE
 from .serializers import OrgSerializer, OrgReadSerializer, \
     OrgMembershipUserSerializer, OrgMembershipAdminSerializer, \
     OrgAllUserSerializer, OrgRetrieveSerializer
@@ -39,7 +39,7 @@ class OrgViewSet(BulkModelViewSet):
 
     def get_data_from_model(self, model):
         if model == User:
-            data = model.objects.filter(related_user_orgs__id=self.org.id)
+            data = model.objects.filter(orgs__id=self.org.id, orgs_through__role=ROLE.USER)
         else:
             data = model.objects.filter(org_id=self.org.id)
         return data

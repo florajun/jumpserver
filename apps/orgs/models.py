@@ -144,7 +144,7 @@ class Organization(models.Model):
         if user.is_anonymous:
             return cls.objects.none()
         if user.is_superuser:
-            return cls.objects.all()
+            return [*cls.objects.all(), cls.default()]
         return cls.get_user_orgs_by_role(user, ROLE.ADMIN)
 
     @classmethod
@@ -158,7 +158,7 @@ class Organization(models.Model):
         if user.is_anonymous:
             return cls.objects.none()
         if user.is_super_auditor:
-            return cls.objects.all()
+            return [*cls.objects.all(), cls.default()]
         return cls.get_user_orgs_by_role(user, ROLE.AUDITOR)
 
     @classmethod
@@ -166,7 +166,7 @@ class Organization(models.Model):
         if user.is_anonymous:
             return cls.objects.none()
         if user.is_superuser or user.is_super_auditor:
-            return cls.objects.all()
+            return [*cls.objects.all(), cls.default()]
         return cls.get_user_orgs_by_role(user, (ROLE.AUDITOR, ROLE.ADMIN))
 
     @classmethod
