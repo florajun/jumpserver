@@ -85,5 +85,5 @@ class OrgAllUserListApi(generics.ListAPIView):
     def get_queryset(self):
         pk = self.kwargs.get("pk")
         org = get_object_or_404(Organization, pk=pk)
-        users = org.get_org_users().only(*self.serializer_class.Meta.only_fields)
+        users = org.users.only(*self.serializer_class.Meta.only_fields)
         return users

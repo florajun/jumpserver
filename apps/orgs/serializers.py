@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from users.models.user import User
 from common.serializers import AdaptedBulkListSerializer
-from .models import Organization, OrganizationMember
+from .models import Organization, OrganizationMember, ROLE
 from .mixins.serializers import OrgMembershipSerializerMixin
 
 
@@ -29,9 +29,9 @@ class OrgSerializer(ModelSerializer):
 
     def _create_relations(self, instance, users, admins, auditors):
         relations = []
-        relations.extend(self._new_relations_by_role(instance, users, OrganizationMember.ROLE_USER))
-        relations.extend(self._new_relations_by_role(instance, admins, OrganizationMember.ROLE_ADMIN))
-        relations.extend(self._new_relations_by_role(instance, auditors, OrganizationMember.ROLE_AUDITOR))
+        relations.extend(self._new_relations_by_role(instance, users, ROLE.USER))
+        relations.extend(self._new_relations_by_role(instance, admins, ROLE.ADMIN))
+        relations.extend(self._new_relations_by_role(instance, auditors, ROLE.AUDITOR))
         OrganizationMember.objects.bulk_create(relations)
 
     def _clear_relations(self, org, role):
@@ -65,9 +65,9 @@ class OrgSerializer(ModelSerializer):
         instance.save()
 
         users_with_role = (
-            (users, OrganizationMember.ROLE_USER),
-            (admins, OrganizationMember.ROLE_ADMIN),
-            (auditors, OrganizationMember.ROLE_AUDITOR)
+            (users, ROLE.USER),
+            (admins, ROLE.ADMIN),
+            (auditors, ROLE.AUDITOR)
         )
         self._update_relations(instance, users_with_role)
         return instance

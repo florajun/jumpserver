@@ -87,17 +87,17 @@ class UserSerializer(CommonBulkSerializerMixin, serializers.ModelSerializer):
         if not role:
             return
         choices = role._choices
-        choices.pop(User.ROLE_APP, None)
+        choices.pop(User.ROLE.APP, None)
         request = self.context.get('request')
         if request and hasattr(request, 'user') and not request.user.is_superuser:
-            choices.pop(User.ROLE_ADMIN, None)
-            choices.pop(User.ROLE_AUDITOR, None)
+            choices.pop(User.ROLE.ADMIN, None)
+            choices.pop(User.ROLE.AUDITOR, None)
         role._choices = choices
 
     def validate_role(self, value):
         request = self.context.get('request')
-        if not request.user.is_superuser and value != User.ROLE_USER:
-            role_display = dict(User.ROLE_CHOICES)[User.ROLE_USER]
+        if not request.user.is_superuser and value != User.ROLE.USER:
+            role_display = dict(User.ROLE.choices)[User.ROLE.USER]
             msg = _("Role limit to {}".format(role_display))
             raise serializers.ValidationError(msg)
         return value
@@ -121,7 +121,7 @@ class UserSerializer(CommonBulkSerializerMixin, serializers.ModelSerializer):
         role = self.initial_data.get('role')
         if self.instance:
             role = role or self.instance.role
-        if role == User.ROLE_AUDITOR:
+        if role == User.ROLE.AUDITOR:
             return []
         return groups
 

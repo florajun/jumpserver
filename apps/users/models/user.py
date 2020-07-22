@@ -18,8 +18,9 @@ from django.shortcuts import reverse
 
 from common.local import LOCAL_DYNAMIC_SETTINGS
 from orgs.utils import current_org
-from common.utils import signer, date_expired_default, get_logger, lazyproperty
+from common.utils import date_expired_default, get_logger, lazyproperty
 from common import fields
+from common.const.choices import ROLE as BASE_ROLE
 from ..signals import post_user_change_password
 
 
@@ -150,29 +151,21 @@ class AuthMixin:
 
 
 class RoleMixin:
-    ROLE_ADMIN = 'Admin'
-    ROLE_USER = 'User'
-    ROLE_APP = 'App'
-    ROLE_AUDITOR = 'Auditor'
+    class ROLE(BASE_ROLE):
+        APP = 'App', _('Application')
 
-    ROLE_CHOICES = (
-        (ROLE_ADMIN, _('Administrator')),
-        (ROLE_USER, _('User')),
-        (ROLE_APP, _('Application')),
-        (ROLE_AUDITOR, _("Auditor"))
-    )
-    role = ROLE_USER
+    role = ROLE.USER
 
     @property
     def role_display(self):
         if not current_org.is_real():
             return self.get_role_display()
         roles = []
-        if self in current_org.get_org_admins():
+        if self in current_org.admins:
             roles.append(str(_('Org admin')))
-        if self in current_org.get_org_auditors():
+        if self in current_org.auditors:
             roles.append(str(_('Org auditor')))
-        if self in current_org.get_org_users():
+        if self in current_org.users:
             roles.append(str(_('User')))
         return " | ".join(roles)
 
@@ -240,18 +233,14 @@ class RoleMixin:
 
     @lazyproperty
     def is_org_admin(self):
-        from orgs.models import OrganizationMember
-        ROLE_ADMIN = OrganizationMember.ROLE_ADMIN
-        if self.is_superuser or self.orgs_through.filter(role=ROLE_ADMIN).exists():
+        if self.is_superuser or self.orgs_through.filter(role=BASE_ROLE.ADMIN).exists():
             return True
         else:
             return False
 
     @lazyproperty
     def is_org_auditor(self):
-        from orgs.models import OrganizationMember
-        ROLE_AUDITOR = OrganizationMember.ROLE_AUDITOR
-        if self.is_super_auditor or self.orgs_through.filter(role=ROLE_AUDITOR).exists():
+        if self.is_super_auditor or self.orgs_through.filter(role=BASE_ROLE.AUDITOR).exists():
             return True
         else:
             return False
@@ -287,7 +276,7 @@ class RoleMixin:
     def create_app_user(cls, name, comment):
         app = cls.objects.create(
             username=name, name=name, email='{}@local.domain'.format(name),
-            is_active=False, role='App', comment=comment,
+            is_active=False, role=cls.ROLE.APP, comment=comment,
             is_first_login=False, created_by='System'
         )
         access_key = app.create_access_key()
@@ -477,7 +466,7 @@ class User(AuthMixin, TokenMixin, RoleMixin, MFAMixin, AbstractUser):
         blank=True, verbose_name=_('User group')
     )
     role = models.CharField(
-        choices=RoleMixin.ROLE_CHOICES, default='User', max_length=10,
+        choices=RoleMixin.ROLE.choices, default='User', max_length=10,
         blank=True, verbose_name=_('Role')
     )
     avatar = models.ImageField(
@@ -650,7 +639,7 @@ class User(AuthMixin, TokenMixin, RoleMixin, MFAMixin, AbstractUser):
                        email=forgery_py.internet.email_address(),
                        name=forgery_py.name.full_name(),
                        password=make_password(forgery_py.lorem_ipsum.word()),
-                       role=choice(list(dict(User.ROLE_CHOICES).keys())),
+                       role=choice(list(dict(User.ROLE.choices).keys())),
                        wechat=forgery_py.internet.user_name(True),
                        comment=forgery_py.lorem_ipsum.sentence(),
                        created_by=choice(cls.objects.all()).username)

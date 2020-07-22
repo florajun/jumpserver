@@ -78,7 +78,7 @@ class UserViewSet(CommonApiMixin, UserQuerysetMixin, BulkModelViewSet):
         users_ids = [
             d.get("id") or d.get("pk") for d in serializer.validated_data
         ]
-        users = current_org.get_org_members().filter(id__in=users_ids)
+        users = current_org.get_members().filter(id__in=users_ids)
         for user in users:
             self.check_object_permissions(self.request, user)
         return super().perform_bulk_update(serializer)

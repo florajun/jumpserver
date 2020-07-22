@@ -2,13 +2,15 @@
 
 from django.db import migrations
 
+from common.const.choices import ROLE
+
 
 def migrate_old_organization_members(apps, schema_editor):
     org_model = apps.get_model("orgs", "Organization")
     org_member_model = apps.get_model('orgs', 'OrganizationMember')
     orgs = org_model.objects.all()
 
-    roles = [org_member_model.ROLE_USER, org_member_model.ROLE_AUDITOR, org_member_model.ROLE_ADMIN]
+    roles = [ROLE.USER, ROLE.AUDITOR, ROLE.ADMIN]
 
     for org in orgs:
         users = org.users.all().only('id')
