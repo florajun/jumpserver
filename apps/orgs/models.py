@@ -1,10 +1,14 @@
 import uuid
 
 from django.db import models
+from django.db.models import F
 from django.utils.translation import ugettext_lazy as _
+from django.conf import settings
 
 from common.utils import is_uuid
 from common.const.choices import ROLE
+
+UserModel = settings.AUTH_USER_MODEL
 
 
 class Organization(models.Model):
@@ -71,24 +75,24 @@ class Organization(models.Model):
             org = cls.default() if default else None
         return org
 
-    def get_org_memebers_by_role(self, role):
+    def get_org_members_by_role(self, role):
         from users.models import User
         if self.is_real():
             return self.members.filter(orgs_through__role=role)
-        users = User.objects.filter(role=User.role)
+        users = User.objects.filter(role=role)
         return users
 
     @property
     def users(self):
-        return self.get_org_memebers_by_role(ROLE.USER)
+        return self.get_org_members_by_role(ROLE.USER)
 
     @property
     def admins(self):
-        return self.get_org_memebers_by_role(ROLE.ADMIN)
+        return self.get_org_members_by_role(ROLE.ADMIN)
 
     @property
     def auditors(self):
-        return self.get_org_memebers_by_role(ROLE.AUDITOR)
+        return self.get_org_members_by_role(ROLE.AUDITOR)
 
     def org_id(self):
         if self.is_real():
@@ -193,6 +197,13 @@ class Organization(models.Model):
     def change_to(self):
         from .utils import set_current_org
         set_current_org(self)
+
+
+class OrgMemeberManager(models.Manager):
+    def set(self, org, users, admins, auditors):
+        oms = self.filter(org=org).annotate(user_id=F('user_id'))
+        self.values('role').annotate()
+        old_users, old_admins, old_auditors = set(), set(), set()
 
 
 class OrganizationMember(models.Model):
