@@ -5,12 +5,9 @@ from django.db import models
 from django.db.models import signals
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
-from django.conf import settings
 
 from common.utils import is_uuid
 from common.const.choices import ROLE
-
-UserModel = settings.AUTH_USER_MODEL
 
 
 class Organization(models.Model):

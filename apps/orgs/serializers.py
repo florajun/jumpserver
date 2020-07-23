@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from users.models.user import User
 from common.serializers import AdaptedBulkListSerializer
-from .models import Organization, OrganizationMember, ROLE
+from .models import Organization, OrganizationMember
 from .mixins.serializers import OrgMembershipSerializerMixin
 
 
@@ -32,6 +32,13 @@ class OrgSerializer(ModelSerializer):
         instance = Organization.objects.create(**validated_data)
         OrganizationMember.objects.add_users_by_role(instance, users, admins, auditors)
         return instance
+
+    def _pop_memebers(self, validated_data):
+        return (
+            validated_data.pop('users', None),
+            validated_data.pop('admins', None),
+            validated_data.pop('auditors', None)
+        )
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', None)
