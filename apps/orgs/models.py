@@ -1,7 +1,9 @@
 import uuid
+from functools import partial
 
 from django.db import models
-from django.db.models import F
+from django.db.models import signals
+from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.conf import settings
 
@@ -199,14 +201,106 @@ class Organization(models.Model):
         set_current_org(self)
 
 
+def _convert_to_uuid_set(users):
+    rst = set()
+    for user in users:
+        if isinstance(user, models.Model):
+            rst.add(user.id)
+        elif not isinstance(user, uuid.UUID):
+            rst.add(uuid.UUID(user))
+    return rst
+
+
+def _none2list(*args):
+    return ([] if v is None else v for v in args)
+
+
 class OrgMemeberManager(models.Manager):
-    def set(self, org, users, admins, auditors):
-        oms = self.filter(org=org).annotate(user_id=F('user_id'))
-        self.values('role').annotate()
+
+    def remove_users_by_role(self, org, users, admins, auditors):
+        if not any((users, admins, auditors)):
+            return
+        users, admins, auditors = _none2list(users, admins, auditors)
+
+        send = partial(signals.m2m_changed.send, sender=self.model, instance=org, reverse=False,
+                       model=Organization, pk_set=[*users, *admins, *auditors], using=self.db)
+
+        send(action="pre_remove")
+        self.filter(org=org).filter(
+            Q(user__in=users, role=ROLE.USER) |
+            Q(user__in=admins, role=ROLE.ADMIN) |
+            Q(user__in=auditors, role=ROLE.AUDITOR)
+        ).delete()
+        send(action="post_remove")
+
+    def add_users_by_role(self, org, users, admins, auditors):
+        if not any((users, admins, auditors)):
+            return
+        users, admins, auditors = _none2list(users, admins, auditors)
+
+        add_mapper = (
+            (users, ROLE.USER),
+            (admins, ROLE.ADMIN),
+            (auditors, ROLE.AUDITOR)
+        )
+
+        oms_add = []
+        for users, role in add_mapper:
+            for user in users:
+                oms_add.append(self.model(org=org, user_id=user, role=role))
+
+        send = partial(signals.m2m_changed.send, sender=self.model, instance=org, reverse=False,
+                       model=Organization, pk_set=[*users, *admins, *auditors], using=self.db)
+
+        send(action='pre_add')
+        self.bulk_create(oms_add)
+        send(action='post_add')
+
+    def _get_remove_add_set(self, new_users, old_users):
+        if new_users is None:
+            return None, None
+        new_users = _convert_to_uuid_set(new_users)
+        return (old_users - new_users), (new_users - old_users)
+
+    def set_users_by_role(self, org, users, admins, auditors):
+        oms = self.filter(org=org).values_list('role', 'user_id')
+
         old_users, old_admins, old_auditors = set(), set(), set()
+
+        mapper = {
+            ROLE.USER: old_users,
+            ROLE.ADMIN: old_admins,
+            ROLE.AUDITOR: old_auditors
+        }
+
+        for role, user_id in oms:
+            if role in mapper:
+                mapper[role].add(user_id)
+
+        users_remove, users_add = self._get_remove_add_set(users, old_users)
+        admins_remove, admins_add = self._get_remove_add_set(admins, old_admins)
+        auditors_remove, auditors_add = self._get_remove_add_set(auditors, old_auditors)
+
+        self.remove_users_by_role(
+            org,
+            users_remove,
+            admins_remove,
+            auditors_remove
+        )
+
+        self.add_users_by_role(
+            org,
+            users_add,
+            admins_add,
+            auditors_add
+        )
 
 
 class OrganizationMember(models.Model):
+    """
+    注意：直接调用该 `Model.delete` `Model.objects.delete` 不会触发清理该用户的信号
+    """
+
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
     org = models.ForeignKey(Organization, related_name='members_through', on_delete=models.CASCADE, verbose_name=_('Organization'))
     user = models.ForeignKey('users.User', related_name='orgs_through', on_delete=models.CASCADE, verbose_name=_('User'))
@@ -214,6 +308,8 @@ class OrganizationMember(models.Model):
     date_created = models.DateTimeField(auto_now_add=True, verbose_name=_("Date created"))
     date_updated = models.DateTimeField(auto_now=True, verbose_name=_("Date updated"))
     created_by = models.CharField(max_length=128, null=True, verbose_name=_('Created by'))
+
+    objects = OrgMemeberManager()
 
     class Meta:
         unique_together = [('org', 'user', 'role')]

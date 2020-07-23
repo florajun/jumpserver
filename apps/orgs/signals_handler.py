@@ -26,41 +26,46 @@ def on_org_create_or_update(sender, instance=None, created=False, **kwargs):
         instance.expire_cache()
 
 
-def _remove_users(model, user, org, reverse=False):
+def _remove_users(model, users, org, reverse=False):
+    if not isinstance(users, (tuple, list, set)):
+        users = (users, )
+
     m2m_model = model.users.through
     if reverse:
         m2m_field_name = model.users.field.m2m_reverse_field_name()
     else:
         m2m_field_name = model.users.field.m2m_field_name()
-    m2m_model.objects.filter(**{'user': user, f'{m2m_field_name}__org_id': org.id}).delete()
+    print('----> _remove_users', users)
+    m2m_model.objects.filter(**{'user__in': users, f'{m2m_field_name}__org_id': org.id}).delete()
 
 
-@receiver(post_delete, sender=OrganizationMember)
-def on_org_user_deleted(signal, sender, instance, **kwargs):
+def _clear_users_from_org(org, users):
+    if not users:
+        return
+
     old_org = current_org
-    org = instance.org
-    user = instance.user
     set_current_org(org)
-    _remove_users(AssetPermission, user, org)
-    _remove_users(UserGroup, user, org, reverse=True)
+    _remove_users(AssetPermission, users, org)
+    _remove_users(UserGroup, users, org, reverse=True)
     set_current_org(old_org)
 
 
-@receiver(m2m_changed, sender=Organization.members.through)
-def on_org_user_changed(sender, instance=None, **kwargs):
-    if isinstance(instance, Organization):
-        old_org = current_org
-        set_current_org(instance)
-        if kwargs['action'] == 'pre_remove':
-            users = kwargs['model'].objects.filter(pk__in=kwargs['pk_set'])
-            for user in users:
-                perms = AssetPermission.objects.filter(users=user)
-                user_groups = UserGroup.objects.filter(users=user)
-                for perm in perms:
-                    perm.users.remove(user)
-                for user_group in user_groups:
-                    user_group.users.remove(user)
-        set_current_org(old_org)
+# @receiver(post_delete, sender=OrganizationMember)
+# def on_org_user_deleted(signal, sender, instance, **kwargs):
+#     print('----> on_org_user_deleted', kwargs)
+#     org = instance.org
+#     user = instance.user
+#     if user.id not in set(org.members.values_list('id', flat=True)):
+#         _clear_users_from_org(org, user)
+
+
+@receiver(m2m_changed, sender=OrganizationMember)
+def on_org_user_changed(sender, instance=None, action=None, pk_set=None, **kwargs):
+    print('---> on_org_user_changed', instance, action, pk_set, kwargs)
+    if action == 'post_remove':
+        leaved_users = set(pk_set) - set(instance.members.values_list('id', flat=True))
+        _clear_users_from_org(instance, leaved_users)
+
 #
 #
 # @receiver(m2m_changed, sender=Organization.admins.through)

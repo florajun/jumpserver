@@ -24,36 +24,14 @@ class OrgSerializer(ModelSerializer):
         fields = fields_small + fields_m2m
         read_only_fields = ['created_by', 'date_created']
 
-    def _new_relations_by_role(self, instance, users, role):
-        return (OrganizationMember(org=instance, user=user, role=role) for user in users)
-
-    def _create_relations(self, instance, users, admins, auditors):
-        relations = []
-        relations.extend(self._new_relations_by_role(instance, users, ROLE.USER))
-        relations.extend(self._new_relations_by_role(instance, admins, ROLE.ADMIN))
-        relations.extend(self._new_relations_by_role(instance, auditors, ROLE.AUDITOR))
-        OrganizationMember.objects.bulk_create(relations)
-
-    def _clear_relations(self, org, role):
-        OrganizationMember.objects.filter(org=org, role=role).delete()
-
     def create(self, validated_data):
-        users = validated_data.pop('users', [])
-        admins = validated_data.pop('admins', [])
-        auditors = validated_data.pop('auditors', [])
+        users = validated_data.pop('users', None)
+        admins = validated_data.pop('admins', None)
+        auditors = validated_data.pop('auditors', None)
 
         instance = Organization.objects.create(**validated_data)
-        self._create_relations(instance, users, admins, auditors)
-
+        OrganizationMember.objects.add_users_by_role(instance, users, admins, auditors)
         return instance
-
-    def _update_relations(self, instance, users_with_role):
-        relations = []
-        for users, role in users_with_role:
-            if users is not None:
-                self._clear_relations(instance, role)
-                relations.extend(self._new_relations_by_role(instance, users, role))
-        OrganizationMember.objects.bulk_create(relations)
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', None)
@@ -63,13 +41,7 @@ class OrgSerializer(ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-
-        users_with_role = (
-            (users, ROLE.USER),
-            (admins, ROLE.ADMIN),
-            (auditors, ROLE.AUDITOR)
-        )
-        self._update_relations(instance, users_with_role)
+        OrganizationMember.objects.set_users_by_role(instance, users, admins, auditors)
         return instance
 
 
