@@ -214,7 +214,7 @@ def _none2list(*args):
 
 class OrgMemeberManager(models.Manager):
 
-    def remove_users_by_role(self, org, users, admins, auditors):
+    def remove_users_by_role(self, org, users=None, admins=None, auditors=None):
         if not any((users, admins, auditors)):
             return
         users, admins, auditors = _none2list(users, admins, auditors)
@@ -230,7 +230,7 @@ class OrgMemeberManager(models.Manager):
         ).delete()
         send(action="post_remove")
 
-    def add_users_by_role(self, org, users, admins, auditors):
+    def add_users_by_role(self, org, users=None, admins=None, auditors=None):
         if not any((users, admins, auditors)):
             return
         users, admins, auditors = _none2list(users, admins, auditors)
@@ -244,6 +244,8 @@ class OrgMemeberManager(models.Manager):
         oms_add = []
         for users, role in add_mapper:
             for user in users:
+                if isinstance(user, models.Model):
+                    user = user.id
                 oms_add.append(self.model(org=org, user_id=user, role=role))
 
         send = partial(signals.m2m_changed.send, sender=self.model, instance=org, reverse=False,
@@ -259,7 +261,7 @@ class OrgMemeberManager(models.Manager):
         new_users = _convert_to_uuid_set(new_users)
         return (old_users - new_users), (new_users - old_users)
 
-    def set_users_by_role(self, org, users, admins, auditors):
+    def set_users_by_role(self, org, users=None, admins=None, auditors=None):
         oms = self.filter(org=org).values_list('role', 'user_id')
 
         old_users, old_admins, old_auditors = set(), set(), set()
