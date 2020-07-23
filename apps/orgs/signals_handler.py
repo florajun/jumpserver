@@ -2,7 +2,7 @@
 #
 
 from django.db.models.signals import m2m_changed
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import Organization, OrganizationMember
@@ -35,7 +35,6 @@ def _remove_users(model, users, org, reverse=False):
         m2m_field_name = model.users.field.m2m_reverse_field_name()
     else:
         m2m_field_name = model.users.field.m2m_field_name()
-    print('----> _remove_users', users)
     m2m_model.objects.filter(**{'user__in': users, f'{m2m_field_name}__org_id': org.id}).delete()
 
 
@@ -50,24 +49,8 @@ def _clear_users_from_org(org, users):
     set_current_org(old_org)
 
 
-# @receiver(post_delete, sender=OrganizationMember)
-# def on_org_user_deleted(signal, sender, instance, **kwargs):
-#     print('----> on_org_user_deleted', kwargs)
-#     org = instance.org
-#     user = instance.user
-#     if user.id not in set(org.members.values_list('id', flat=True)):
-#         _clear_users_from_org(org, user)
-
-
 @receiver(m2m_changed, sender=OrganizationMember)
 def on_org_user_changed(sender, instance=None, action=None, pk_set=None, **kwargs):
-    print('---> on_org_user_changed', instance, action, pk_set, kwargs)
     if action == 'post_remove':
         leaved_users = set(pk_set) - set(instance.members.values_list('id', flat=True))
         _clear_users_from_org(instance, leaved_users)
-
-#
-#
-# @receiver(m2m_changed, sender=Organization.admins.through)
-# def on_org_admin_change(sender, **kwargs):
-#     Organization._user_admin_orgs = None
