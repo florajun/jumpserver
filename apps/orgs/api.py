@@ -36,7 +36,7 @@ class OrgViewSet(BulkModelViewSet):
 
     def get_data_from_model(self, model):
         if model == User:
-            data = model.objects.filter(orgs__id=self.org.id, orgs_through__role=ROLE.USER)
+            data = model.objects.filter(orgs__id=self.org.id, m2m_org_members__role=ROLE.USER)
         else:
             data = model.objects.filter(org_id=self.org.id)
         return data
@@ -70,6 +70,6 @@ class OrgAllUserListApi(generics.ListAPIView):
     def get_queryset(self):
         pk = self.kwargs.get("pk")
         users = User.objects.filter(
-            orgs=pk, orgs_through__role=ROLE.USER
+            orgs=pk, m2m_org_members__role=ROLE.USER
         ).only(*self.serializer_class.Meta.only_fields)
         return users

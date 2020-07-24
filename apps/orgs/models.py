@@ -77,7 +77,7 @@ class Organization(models.Model):
     def get_org_members_by_role(self, role):
         from users.models import User
         if self.is_real():
-            return self.members.filter(orgs_through__role=role)
+            return self.members.filter(m2m_org_members__role=role)
         users = User.objects.filter(role=role)
         return users
 
@@ -104,7 +104,7 @@ class Organization(models.Model):
     def get_members(self, exclude=()):
         from users.models import User
         if self.is_real():
-            members = self.members.exclude(orgs_through__role__in=exclude)
+            members = self.members.exclude(m2m_org_members__role__in=exclude)
         else:
             members = User.objects.exclude(role__in=exclude)
 
@@ -301,8 +301,8 @@ class OrganizationMember(models.Model):
     """
 
     id = models.UUIDField(default=uuid.uuid4, primary_key=True)
-    org = models.ForeignKey(Organization, related_name='members_through', on_delete=models.CASCADE, verbose_name=_('Organization'))
-    user = models.ForeignKey('users.User', related_name='orgs_through', on_delete=models.CASCADE, verbose_name=_('User'))
+    org = models.ForeignKey(Organization, related_name='m2m_org_members', on_delete=models.CASCADE, verbose_name=_('Organization'))
+    user = models.ForeignKey('users.User', related_name='m2m_org_members', on_delete=models.CASCADE, verbose_name=_('User'))
     role = models.CharField(max_length=16, choices=ROLE.choices, default=ROLE.USER, verbose_name=_("Role"))
     date_created = models.DateTimeField(auto_now_add=True, verbose_name=_("Date created"))
     date_updated = models.DateTimeField(auto_now=True, verbose_name=_("Date updated"))

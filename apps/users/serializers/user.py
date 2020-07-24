@@ -75,7 +75,7 @@ class UserSerializer(CommonBulkSerializerMixin, serializers.ModelSerializer):
             'can_delete': {'read_only': True},
             'groups_display': {'label': _('Groups name')},
             'source_display': {'label': _('Source name')},
-            'role_display': {'label': _('Role name')},
+            'role_display': {'label': _('Role name'), 'source': 'org_role_display'},
         }
 
     def __init__(self, *args, **kwargs):
@@ -97,7 +97,7 @@ class UserSerializer(CommonBulkSerializerMixin, serializers.ModelSerializer):
     def validate_role(self, value):
         request = self.context.get('request')
         if not request.user.is_superuser and value != User.ROLE.USER:
-            role_display = dict(User.ROLE.choices)[User.ROLE.USER]
+            role_display = User.ROLE.USER.label
             msg = _("Role limit to {}".format(role_display))
             raise serializers.ValidationError(msg)
         return value

@@ -1,3 +1,5 @@
+from functools import partial
+
 
 class Choice(str):
     def __new__(cls, value, label):
@@ -25,8 +27,15 @@ class ChoiceSetType(type):
                         _choices.append(c)
                         collected.add(c)
         new_attrs['_choices'] = _choices
+        new_attrs['_choices_dict'] = {c: c.label for c in _choices}
         new_attrs['choices'] = [(c, c.label) for c in _choices]
         return type.__new__(cls, name, bases, new_attrs)
+
+    def __getitem__(self, item):
+        return self._choices_dict.__getitem__(item)
+
+    def get(self, item, default=None):
+        return self._choices_dict.get(item, default=None)
 
 
 class ChoiceSet(metaclass=ChoiceSetType):

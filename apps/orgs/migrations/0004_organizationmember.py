@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('date_updated', models.DateTimeField(auto_now=True, verbose_name='Date updated')),
                 ('created_by', models.CharField(max_length=128, null=True, verbose_name='Created by')),
                 ('org', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='members_through', to='orgs.Organization', verbose_name='Organization')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='orgs_through', to=settings.AUTH_USER_MODEL, verbose_name='User')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='m2m_org_members', to=settings.AUTH_USER_MODEL, verbose_name='User')),
             ],
             options={
                 'db_table': 'orgs_organization_members',

@@ -157,17 +157,25 @@ class RoleMixin:
     role = ROLE.USER
 
     @property
-    def role_display(self):
+    def org_role_display(self):
+        ROLE = self.ROLE
+        mapper = {
+            ROLE.USER: str(_('User')),
+            ROLE.ADMIN: str(_('Org admin')),
+            ROLE.AUDITOR: str(_('Org auditor'))
+        }
+
         if not current_org.is_real():
-            return self.get_role_display()
-        roles = []
-        if self in current_org.admins:
-            roles.append(str(_('Org admin')))
-        if self in current_org.auditors:
-            roles.append(str(_('Org auditor')))
-        if self in current_org.users:
-            roles.append(str(_('User')))
-        return " | ".join(roles)
+            if self.is_superuser:
+                return ' | '.join(mapper.values())
+            else:
+                return ''
+
+        roles = set(self.m2m_org_members.filter(
+            org_id=current_org.id
+        ).values_list('role', flat=True))
+
+        return ' | '.join([mapper[role] for role in roles if role in mapper])
 
     def current_org_roles(self):
         roles = []
@@ -233,14 +241,14 @@ class RoleMixin:
 
     @lazyproperty
     def is_org_admin(self):
-        if self.is_superuser or self.orgs_through.filter(role=BASE_ROLE.ADMIN).exists():
+        if self.is_superuser or self.m2m_org_members.filter(role=BASE_ROLE.ADMIN).exists():
             return True
         else:
             return False
 
     @lazyproperty
     def is_org_auditor(self):
-        if self.is_super_auditor or self.orgs_through.filter(role=BASE_ROLE.AUDITOR).exists():
+        if self.is_super_auditor or self.m2m_org_members.filter(role=BASE_ROLE.AUDITOR).exists():
             return True
         else:
             return False
